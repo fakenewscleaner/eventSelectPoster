@@ -280,9 +280,12 @@
     });
 
     /* ── Decode hash: base64(APIKEY|BASEID|TABLEID) ── */
+    /* Supports both ?h=<base64> (query param) and #<base64> (hash) */
     let API_KEY, BASE_ID, TABLE_ID;
     try {
-      const decoded = atob(window.location.hash.slice(1));
+      const qh = new URLSearchParams(window.location.search).get('h');
+      const raw = qh || window.location.hash.slice(1);
+      const decoded = atob(raw);
       [API_KEY, BASE_ID, TABLE_ID] = decoded.split('|');
       if (!API_KEY || !BASE_ID || !TABLE_ID) throw new Error();
     } catch (_) {
@@ -497,9 +500,9 @@
     }
 
     if (!API_KEY) {
-      document.getElementById('status').textContent = '❌ 缺少設定，請確認網址 # 後面有正確的編碼';
+      document.getElementById('status').textContent = '❌ 缺少設定，請確認網址參數有正確的編碼';
       document.getElementById('activity-list').innerHTML =
-        '<div class="empty-note">網址格式：<br><code>http://.../#base64(APIKEY|BASEID|TABLEID)</code></div>';
+        '<div class="empty-note">網址格式（擇一）：<br><code>http://.../?h=base64(APIKEY|BASEID|TABLEID)</code><br><code>http://.../#base64(APIKEY|BASEID|TABLEID)</code></div>';
     } else {
       fetchActivities();
     }
