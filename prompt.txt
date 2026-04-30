@@ -1,0 +1,2 @@
+我想用 airtable api 撈出未來有哪些活動，幫我讀過 https://airtable.com/developers/web/api/get-base-schema api doc 然後用 .env 裡面的 key 和 base            
+取出整個活動資料表 tblHiqmSTNb7XB0Jx 

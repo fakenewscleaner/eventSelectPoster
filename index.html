@@ -157,6 +157,26 @@
       overflow: hidden;
     }
 
+    /* ── Region filter bar ── */
+    .filter-bar {
+      background: #1b4332;
+      padding: 6px 12px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      flex-shrink: 0;
+      flex-wrap: wrap;
+    }
+    .filter-label { color: rgba(255,255,255,0.7); font-size: 12px; margin-right: 2px; }
+    .region-btn {
+      font-size: 12px; padding: 3px 10px; border-radius: 12px;
+      border: 1px solid rgba(255,255,255,0.3); background: transparent;
+      color: rgba(255,255,255,0.8); cursor: pointer; transition: all 0.15s;
+      font-family: inherit;
+    }
+    .region-btn:hover { background: rgba(255,255,255,0.15); }
+    .region-btn.active { background: #52b788; border-color: #52b788; color: #fff; font-weight: 600; }
+
     /* ── Desktop layout (≥ 900px) ── */
     @media (min-width: 900px) {
       .main-content {
@@ -208,6 +228,17 @@
     <emoji-picker></emoji-picker>
   </div>
 
+  <!-- Region filter bar -->
+  <div class="filter-bar">
+    <span class="filter-label">地區篩選：</span>
+    <button class="region-btn active" data-region="all" onclick="setRegion('all')">全部</button>
+    <button class="region-btn" data-region="north" onclick="setRegion('north')">北部</button>
+    <button class="region-btn" data-region="central" onclick="setRegion('central')">中部</button>
+    <button class="region-btn" data-region="south" onclick="setRegion('south')">南部</button>
+    <button class="region-btn" data-region="east" onclick="setRegion('east')">東部</button>
+    <button class="region-btn" data-region="island" onclick="setRegion('island')">離島</button>
+  </div>
+
   <div class="main-content">
   <div class="activity-section" id="activity-list">
     <div class="empty-note">載入中…</div>
@@ -227,6 +258,44 @@
     /* ── Emoji picker ── */
     let _emojiTargetId = null;
     const popover = document.getElementById('emoji-popover');
+
+    /* ── Region filter ── */
+    const REGION_KEYWORDS = {
+      north:   ['台北', '臺北', '新北', '桃園', '新竹', '基隆'],
+      central: ['台中', '臺中', '彰化', '南投', '苗栗', '雲林'],
+      south:   ['台南', '臺南', '高雄', '屏東', '嘉義'],
+      east:    ['宜蘭', '花蓮', '台東', '臺東'],
+      island:  ['澎湖', '金門', '馬祖', '連江', '琉球', '綠島', '蘭嶼'],
+    };
+    let currentRegion = 'all';
+
+    function setRegion(region) {
+      currentRegion = region;
+      document.querySelectorAll('.region-btn').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.region === region);
+      });
+      applyRegionFilter();
+    }
+
+    function matchesRegion(activity, region) {
+      if (region === 'all') return true;
+      const loc = (activity.fields['地點'] || '') + (activity.fields['縣市'] || '');
+      const keywords = REGION_KEYWORDS[region] || [];
+      return keywords.some(kw => loc.includes(kw));
+    }
+
+    function applyRegionFilter() {
+      const filtered = activities.filter(a => matchesRegion(a, currentRegion));
+      const count = filtered.length;
+      document.getElementById('status').textContent =
+        currentRegion === 'all'
+          ? `共 ${activities.length} 個即將到來的活動`
+          : `共 ${activities.length} 個活動，${REGION_LABELS[currentRegion]}篩選後 ${count} 個`;
+      renderCards(filtered);
+    }
+
+    const REGION_LABELS = { north:'北部', central:'中部', south:'南部', east:'東部', island:'離島' };
+
 
     function openEmojiPicker(event, id) {
       event.stopPropagation();
@@ -490,8 +559,7 @@
         } while (offset);
 
         activities = allRecords;
-        document.getElementById('status').textContent = `共 ${activities.length} 個即將到來的活動`;
-        renderCards(activities);
+        applyRegionFilter();
       } catch (err) {
         document.getElementById('status').textContent = `❌ 載入失敗：${err.message}`;
         document.getElementById('activity-list').innerHTML =
