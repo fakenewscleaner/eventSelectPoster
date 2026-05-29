@@ -177,6 +177,15 @@
     .region-btn:hover { background: rgba(255,255,255,0.15); }
     .region-btn.active { background: #52b788; border-color: #52b788; color: #fff; font-weight: 600; }
 
+    /* ── Month filter bar ── */
+    .filter-bar.month-bar {
+      background: #245741;
+      padding-top: 4px;
+      padding-bottom: 4px;
+    }
+    #month-filter-bar { display: none; }
+    #month-filter-bar.visible { display: flex; }
+
     /* ── Desktop layout (≥ 900px) ── */
     @media (min-width: 900px) {
       .main-content {
@@ -238,6 +247,10 @@
     <button class="region-btn" data-region="east" onclick="setRegion('east')">東部</button>
     <button class="region-btn" data-region="island" onclick="setRegion('island')">離島</button>
   </div>
+  <!-- Month filter bar (populated dynamically) -->
+  <div class="filter-bar month-bar" id="month-filter-bar">
+    <span class="filter-label">月份篩選：</span>
+  </div>
 
   <div class="main-content">
   <div class="activity-section" id="activity-list">
@@ -267,14 +280,35 @@
       east:    ['宜蘭', '花蓮', '台東', '臺東'],
       island:  ['澎湖', '金門', '馬祖', '連江', '琉球', '綠島', '蘭嶼'],
     };
-    let currentRegion = 'all';
+    let currentRegion  = 'all';
+    let allMonths      = [];       // all months present in loaded data
+    let selectedMonths = new Set(); // subset being shown; full set = no filter
 
     function setRegion(region) {
       currentRegion = region;
-      document.querySelectorAll('.region-btn').forEach(btn => {
+      document.querySelectorAll('.region-btn:not(.month-btn)').forEach(btn => {
         btn.classList.toggle('active', btn.dataset.region === region);
       });
-      applyRegionFilter();
+      applyFilters();
+    }
+
+    function toggleMonth(month) {
+      if (selectedMonths.has(month)) {
+        selectedMonths.delete(month);
+        // If nothing left, restore all so the view doesn't go blank
+        if (selectedMonths.size === 0) selectedMonths = new Set(allMonths);
+      } else {
+        selectedMonths.add(month);
+      }
+      updateMonthBtnStates();
+      applyFilters();
+    }
+
+    function updateMonthBtnStates() {
+      document.querySelectorAll('.month-btn').forEach(btn => {
+        const m = parseInt(btn.dataset.month);
+        btn.classList.toggle('active', selectedMonths.has(m));
+      });
     }
 
     function matchesRegion(activity, region) {
@@ -284,14 +318,56 @@
       return keywords.some(kw => loc.includes(kw));
     }
 
-    function applyRegionFilter() {
-      const filtered = activities.filter(a => matchesRegion(a, currentRegion));
+    function matchesMonth(activity, months) {
+      if (months.size === allMonths.length) return true; // all selected = no filter
+      const start = activity.fields['開始時間'];
+      if (!start) return false;
+      return months.has(toTW(start).getUTCMonth() + 1);
+    }
+
+    function applyFilters() {
+      const filtered = activities.filter(a =>
+        matchesRegion(a, currentRegion) && matchesMonth(a, selectedMonths)
+      );
       const count = filtered.length;
+      const regionLabel = currentRegion !== 'all' ? REGION_LABELS[currentRegion] : '';
+      const monthLabel  = selectedMonths.size < allMonths.length
+        ? [...selectedMonths].sort((a,b) => a-b).map(m => `${m}月`).join('、')
+        : '';
+      const filterLabel = [regionLabel, monthLabel].filter(Boolean).join('、');
       document.getElementById('status').textContent =
-        currentRegion === 'all'
-          ? `共 ${activities.length} 個即將到來的活動`
-          : `共 ${activities.length} 個活動，${REGION_LABELS[currentRegion]}篩選後 ${count} 個`;
+        filterLabel
+          ? `共 ${activities.length} 個活動，篩選（${filterLabel}）後 ${count} 個`
+          : `共 ${activities.length} 個即將到來的活動`;
       renderCards(filtered);
+    }
+
+    function buildMonthFilter() {
+      const months = [...new Set(
+        activities
+          .map(a => a.fields['開始時間'])
+          .filter(Boolean)
+          .map(iso => toTW(iso).getUTCMonth() + 1)
+      )].sort((a, b) => a - b);
+
+      const bar = document.getElementById('month-filter-bar');
+      if (!months.length) { bar.classList.remove('visible'); return; }
+
+      // Remove old dynamic buttons (keep the label span)
+      bar.querySelectorAll('.month-btn').forEach(b => b.remove());
+      allMonths = months;
+      selectedMonths = new Set(months); // all selected by default
+
+      months.forEach(m => {
+        const btn = document.createElement('button');
+        btn.className = 'region-btn month-btn active'; // all active = all shown
+        btn.dataset.month = String(m);
+        btn.textContent = `${m}月`;
+        btn.onclick = () => toggleMonth(m);
+        bar.appendChild(btn);
+      });
+
+      bar.classList.add('visible');
     }
 
     const REGION_LABELS = { north:'北部', central:'中部', south:'南部', east:'東部', island:'離島' };
@@ -559,7 +635,8 @@
         } while (offset);
 
         activities = allRecords;
-        applyRegionFilter();
+        buildMonthFilter();
+        applyFilters();
       } catch (err) {
         document.getElementById('status').textContent = `❌ 載入失敗：${err.message}`;
         document.getElementById('activity-list').innerHTML =
