@@ -551,7 +551,7 @@
         const time   = formatTime(f['開始時間'], f['結束時間']);
         const loc    = f['地點'] || '';
         const nature = f['活動性質'] || '';
-        const prog   = f['宣傳進度'] || '';
+        const prog   = f['洽談進度'] || '';
         const volRaw = (f['志工資訊'] || '').trim();
 
         const id = r.id;
@@ -618,7 +618,7 @@
         'sort[0][field]': '開始時間',
         'sort[0][direction]': 'asc',
       });
-      ['名稱','開始時間','結束時間','地點','活動性質','宣傳進度','志工資訊']
+      ['名稱','開始時間','結束時間','地點','活動性質','洽談進度','志工資訊']
         .forEach(f => params.append('fields[]', f));
 
       try {
